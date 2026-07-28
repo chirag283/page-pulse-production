@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  page-pulse-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: page-pulse-service
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_URL=redis://redis-cache:6379
+      - MAX_CONCURRENCY=500
+      - MAX_QUEUE_LENGTH=1000
+      - RATE_LIMIT_WINDOW_MS=60000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - LOG_LEVEL=info
+    depends_on:
+      redis-cache:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - page-pulse-net
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: page-pulse-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel notice
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - page-pulse-net
+
+volumes:
+  redis-data:
+
+networks:
+  page-pulse-net:
+    driver: bridge

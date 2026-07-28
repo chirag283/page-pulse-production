@@ -1,0 +1,6 @@
+{
+  "name": "Page Pulse - Production URL Audit Service",
+  "description": "Production-grade URL audit service featuring SSRF protection, concurrency management, Redis caching, rate limiting, and an interactive audit dashboard & architecture suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

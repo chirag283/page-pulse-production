@@ -1,0 +1,238 @@
+openapi: 3.0.3
+info:
+  title: Page Pulse URL Audit Service API
+  description: Production-grade, low-latency URL audit engine with SSRF protection, concurrency queue control, Redis caching, and rate limiting. Built for Digital Heroes Qualification Task.
+  version: 1.0.0
+  contact:
+    name: Digital Heroes Platform Engineering
+    url: https://digitalheroesco.com
+servers:
+  - url: /
+    description: Production & Local Environment
+
+paths:
+  /api/audit:
+    post:
+      summary: Perform a single URL audit
+      description: Validates URL, enforces SSRF rules, checks Redis cache, and executes audit checks for security headers, SEO metadata, performance, and SSL certificate.
+      operationId: auditSingleUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  example: "https://example.com"
+                  description: Target HTTP or HTTPS URL to audit.
+                forceFresh:
+                  type: boolean
+                  default: false
+                  description: Bypasses Redis cache when true.
+                timeoutMs:
+                  type: integer
+                  default: 5000
+                  minimum: 1000
+                  maximum: 30000
+                  description: Max duration in ms before request is aborted.
+      responses:
+        '200':
+          description: Successful URL audit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditResponse'
+        '400':
+          description: Invalid input or SSRF violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Audit request timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/audit/batch:
+    post:
+      summary: Perform a batch URL audit
+      description: Audits up to 10 URLs concurrently within concurrency safety bounds.
+      operationId: auditBatchUrls
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - urls
+              properties:
+                urls:
+                  type: array
+                  items:
+                    type: string
+                  example: ["https://example.com", "https://github.com"]
+                forceFresh:
+                  type: boolean
+                  default: false
+                timeoutMs:
+                  type: integer
+                  default: 5000
+      responses:
+        '200':
+          description: Batch audit results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  requestId:
+                    type: string
+                  totalCount:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+
+  /api/health:
+    get:
+      summary: System Health & Status
+      description: Returns service uptime, Redis status, queue depth, and memory consumption.
+      responses:
+        '200':
+          description: Service health metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/stats:
+    get:
+      summary: Service Telemetry & SLA Metrics
+      description: Returns P50/P95/P99 latency percentiles, cache hit ratios, queue stats, and rate-limiting metrics.
+      responses:
+        '200':
+          description: Telemetry statistics
+
+components:
+  schemas:
+    AuditResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        requestId:
+          type: string
+          example: "req_1722123456_a1b2c"
+        cached:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/AuditData'
+
+    AuditData:
+      type: object
+      properties:
+        url:
+          type: string
+          example: "https://example.com"
+        finalUrl:
+          type: string
+          example: "https://example.com"
+        durationMs:
+          type: integer
+          example: 245
+        ttfbMs:
+          type: integer
+          example: 120
+        statusCode:
+          type: integer
+          example: 200
+        scores:
+          type: object
+          properties:
+            overall:
+              type: integer
+              example: 92
+            security:
+              type: integer
+              example: 85
+            seo:
+              type: integer
+              example: 95
+            performance:
+              type: integer
+              example: 96
+        security:
+          type: object
+          properties:
+            grade:
+              type: string
+              example: "A"
+            missingCount:
+              type: integer
+              example: 1
+        seo:
+          type: object
+          properties:
+            title:
+              type: string
+              example: "Example Domain"
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - requestId
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        requestId:
+          type: string
+          example: "req_1722123456_err1"
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: "SSRF_BLOCKED"
+            message:
+              type: string
+              example: "Target host IP address '127.0.0.1' is in a private or loopback network range."
+            details:
+              type: object
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        uptimeSeconds:
+          type: integer
+          example: 3600
+        cache:
+          type: object
+        concurrency:
+          type: object
