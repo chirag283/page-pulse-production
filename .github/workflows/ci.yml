@@ -2,12 +2,17 @@ name: Page Pulse CI/CD Pipeline
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
   pull_request:
-    branches: [main, master]
+    branches:
+      - main
+      - master
 
 jobs:
   validate-and-test:
+    name: Build, Test & Verify
     runs-on: ubuntu-latest
 
     services:
@@ -21,22 +26,40 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      NODE_ENV: test
+      REDIS_URL: redis://localhost:6379
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 22
+          cache: npm
 
-      - run: bun install
+      - name: Install Dependencies
+        run: npm install
 
-      - run: bun run lint
+      - name: Type Check
+        run: npm run lint
 
-      - env:
-          REDIS_URL: redis://localhost:6379
-          NODE_ENV: test
-        run: bun test
+      - name: Run Tests
+        run: npm test
 
-      - run: bun run build
+      - name: Build Project
+        run: npm run build
 
-      - run: docker build . -t page-pulse:ci
+      - name: Verify Docker Build
+        run: docker build -t page-pulse-production .
+
+      - name: Upload Build Artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-pulse-build
+          path: |
+            dist
+            swagger.yaml
