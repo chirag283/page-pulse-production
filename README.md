@@ -192,4 +192,4 @@ npm run lint
 This application was engineered for the **Digital Heroes Software Development Qualification Task**.
 
 * **Organization Website**: [https://digitalheroesco.com](https://digitalheroesco.com)
-* **Application URL**: `https://ais-dev-jqy5z24h23j63erks6syi4-525209508268.asia-southeast1.run.app`
+* **Application URL**: `https://page-pulse-production-k5ng.vercel.app/'
